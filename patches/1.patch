@@ -1,0 +1,33 @@
+diff --git a/feeds.conf.default b/feeds.conf.default
+index 14419ee39..9260627e9 100644
+--- a/feeds.conf.default
++++ b/feeds.conf.default
+@@ -2,9 +2,12 @@ src-git packages https://github.com/coolsnowwolf/packages
+ src-git luci https://github.com/coolsnowwolf/luci
+ src-git routing https://github.com/coolsnowwolf/routing
+ src-git telephony https://git.openwrt.org/feed/telephony.git
+-#src-git helloworld https://github.com/fw876/helloworld.git
++src-git helloworld https://github.com/fw876/helloworld.git
+ #src-git oui https://github.com/zhaojh329/oui.git
+ #src-git video https://github.com/openwrt/video.git
+ #src-git targets https://github.com/openwrt/targets.git
+ #src-git oldpackages http://git.openwrt.org/packages.git
+ #src-link custom /usr/src/openwrt/custom-feed
++src-git passwall_packages https://github.com/xiaorouji/openwrt-passwall.git;packages
++src-git passwall_luci https://github.com/xiaorouji/openwrt-passwall.git;luci
++src-git OpenClash https://github.com/vernesong/OpenClash.git;dev
+diff --git a/package/base-files/files/bin/config_generate b/package/base-files/files/bin/config_generate
+index a1752fd3f..2db6e8e39 100755
+--- a/package/base-files/files/bin/config_generate
++++ b/package/base-files/files/bin/config_generate
+@@ -147,8 +147,8 @@ generate_network() {
+ 		static)
+ 			local ipad
+ 			case "$1" in
+-				lan) ipad=${ipaddr:-"192.168.1.1"} ;;
+-				*) ipad=${ipaddr:-"192.168.$((addr_offset++)).1"} ;;
++				lan) ipad=${ipaddr:-"10.0.0.1"} ;;
++				*) ipad=${ipaddr:-"10.0.$((addr_offset++)).1"} ;;
+ 			esac
+ 
+ 			netm=${netmask:-"255.255.255.0"}

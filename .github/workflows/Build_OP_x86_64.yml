@@ -8,18 +8,19 @@
 name: Build_x86_64
 
 on: 
+  workflow_dispatch:
   release:
     types: [published]
 
-  #push:
-  #  branches: 
-  #    - master
+  push:
+    branches: 
+      - master
 
-  #schedule:
-  #  - cron: 0 8 * * 5
+  schedule:
+    - cron: 0 8 * * 5
   
-  #watch:
-  #  types: [started]
+  watch:
+    types: [started]
 
 jobs:
   build:
@@ -54,7 +55,12 @@ jobs:
           mysql* \
           php*
         sudo -E apt-get update
-        sudo -E apt-get -y install build-essential asciidoc binutils bzip2 gawk gettext git libncurses5-dev libz-dev patch python3 python2.7 unzip zlib1g-dev lib32gcc1 libc6-dev-i386 subversion flex uglifyjs git-core gcc-multilib p7zip p7zip-full msmtp libssl-dev texinfo libglib2.0-dev xmlto qemu-utils upx libelf-dev autoconf automake libtool autopoint device-tree-compiler g++-multilib antlr3 gperf wget curl swig rsync
+        sudo -E apt-get -y install ack antlr3 aria2 asciidoc autoconf automake autopoint binutils bison build-essential \
+                bzip2 ccache cmake cpio curl device-tree-compiler fastjar flex gawk gettext gcc-multilib g++-multilib \
+                git gperf haveged help2man intltool libc6-dev-i386 libelf-dev libglib2.0-dev libgmp3-dev libltdl-dev \
+                libmpc-dev libmpfr-dev libncurses5-dev libncursesw5-dev libreadline-dev libssl-dev libtool lrzsz \
+                mkisofs msmtp nano ninja-build p7zip p7zip-full patch pkgconf python2.7 python3 python3-pip libpython3-dev qemu-utils \
+                rsync scons squashfs-tools subversion swig texinfo uglifyjs upx-ucl unzip vim wget xmlto xxd zlib1g-dev
         sudo -E apt-get -y autoremove --purge
         sudo -E apt-get clean
 
@@ -64,15 +70,32 @@ jobs:
         REPO_BRANCH: master
       run: |
         git clone --depth 1 $REPO_URL -b $REPO_BRANCH openwrt
-        cd openwrt
-        echo "src-git ssrp https://github.com/fw876/helloworld.git" >> ./feeds.conf.default
-        
+
+    - name: Clone Misc source
+      working-directory: ./openwrt/package/lean
+      run: |
+        git clone https://github.com/kiddin9/luci-app-dnsfilter
+
+    - name: Apply Patch
+      working-directory: ./openwrt
+      env:
+        CONFIG_FILE: '../patches/1.patch'
+      run: |
+        git apply $CONFIG_FILE
+
     - name: Update & Install feeds
       working-directory: ./openwrt
       run: |
         ./scripts/feeds update -a
         ./scripts/feeds install -a
         ./scripts/feeds install -a
+
+    - name: Free Space
+      working-directory: ./openwrt
+      run: |
+        sudo rm -rf \
+            .git \
+            ./feeds/OpenClash/.git
 
     #- name: Import external feeds - passwall
     #  working-directory: ./openwrt
@@ -85,14 +108,14 @@ jobs:
     #  run: |
     #    git clone -b 18.06 https://github.com/jerrykuku/luci-theme-argon.git package/luci-theme-argon-jerrykuku
 
+
     - name: Configuration Customization - Build_x86_64
       env:
         CONFIG_FILE: 'x86_64.config'
       run: |
         [ -e $CONFIG_FILE ] && mv $CONFIG_FILE openwrt/.config
-        chmod +x ./customize.sh && ./customize.sh
         cd openwrt && make defconfig
-        
+
     - name: Download package
       working-directory: ./openwrt
       run: |
@@ -100,14 +123,44 @@ jobs:
         find dl -size -1024c -exec ls -l {} \;
         find dl -size -1024c -exec rm -f {} \;
 
-    - name: Build firmware
+    - name: Build Firmware
       working-directory: ./openwrt
       run: |
         echo -e "$(nproc) thread build."
         make -j$(nproc) V=s
 
+    - name: Moving Files
+      working-directory: ./openwrt
+      run: |
+        mv -f "bin/targets/x86/64/openwrt-x86-64-generic-squashfs-combined.img" "../openwrt-x86-64-generic-squashfs-combined.img"
+      # mv -f "bin/targets/x86/64/openwrt-x86-64-generic-squashfs-rootfs.img" "../openwrt-x86-64-generic-squashfs-rootfs.img"
+
+    - name: Prepare Release Zip File
+      id: assemble_artifact
+      run: |
+        zip OpenWrt-X86_64.zip openwrt-x86-64-generic-squashfs-combined.img
+        release_tag="X86_64-$(date +%Y-%m-%d)"
+        echo "##[set-output name=release_tag;]$release_tag" 
+
+    - name: Free Space
+      working-directory: ./openwrt
+      run: |
+        sudo rm -rf \
+            dl \
+            bin
+
     - name : Upload artifact
       uses: actions/upload-artifact@master
       with:
-        name: OpenWrt
-        path: openwrt/bin
+        name: OpenWrt-x86_64
+        path: |
+          OpenWrt-X86_64.zip
+
+    - name: Upload release asset
+      uses: svenstaro/upload-release-action@v2
+      with:
+        repo_token: ${{ secrets.GITHUB_TOKEN }}
+        file: OpenWrt-X86_64.zip
+        tag: ${{ github.ref }}
+        asset_name: OpenWrt-${{ steps.assemble_artifact.outputs.release_tag }}
+        file_glob: true
