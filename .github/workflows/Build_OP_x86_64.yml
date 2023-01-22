@@ -160,7 +160,7 @@ jobs:
       uses: svenstaro/upload-release-action@v2
       with:
         repo_token: ${{ secrets.GITHUB_TOKEN }}
-        file: OpenWrt-X86_64.zip
-        tag: ${{ github.ref }}
+        file: /home/runner/work/AutoBuild-OpenWrt/AutoBuild-OpenWrt/OpenWrt-X86_64.zip
+        tag: ${{ steps.assemble_artifact.outputs.release_tag }}
         asset_name: OpenWrt-${{ steps.assemble_artifact.outputs.release_tag }}
         file_glob: true
